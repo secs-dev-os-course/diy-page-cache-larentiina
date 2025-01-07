@@ -34,10 +34,10 @@ TEST_F(BlockCacheTest, ReadFromFile) {
 
   char buffer[block_size] = {0};
   ssize_t bytes_read = cache.read(fd, buffer, block_size);
-  ASSERT_EQ(bytes_read, block_size);
+  ASSERT_EQ(bytes_read, block_size) << "Неверное количество прочитанных байт";
 
   for (size_t i = 0; i < block_size; ++i) {
-    ASSERT_EQ(buffer[i], static_cast<char>(i % 256));
+    ASSERT_EQ(buffer[i], static_cast<char>(i % 256)) << "Ошибка чтения данных";
   }
 
   EXPECT_EQ(cache.close(fd), 0);
@@ -52,15 +52,15 @@ TEST_F(BlockCacheTest, WriteToFile) {
   std::fill_n(buffer, block_size, 'A');
 
   ssize_t bytes_written = cache.write(fd, buffer, block_size);
-  ASSERT_EQ(bytes_written, block_size);
+  ASSERT_EQ(bytes_written, block_size) << "Неверное количество записанных байт";
 
   char read_back[block_size] = {0};
   cache.lseek(fd, 0, SEEK_SET);
   ssize_t bytes_read = cache.read(fd, read_back, block_size);
-  ASSERT_EQ(bytes_read, block_size);
+  ASSERT_EQ(bytes_read, block_size) << "Неверное количество прочитанных байт при проверке записи";
 
   for (size_t i = 0; i < block_size; ++i) {
-    ASSERT_EQ(read_back[i], 'A');
+    ASSERT_EQ(read_back[i], 'A') << "Ошибка при проверке записанных данных";
   }
 
   EXPECT_EQ(cache.close(fd), 0);
@@ -79,3 +79,27 @@ TEST_F(BlockCacheTest, CacheEviction) {
   EXPECT_EQ(cache.close(fd), 0);
 }
 
+TEST_F(BlockCacheTest, FsyncTest) {
+  BlockCache cache(block_size, max_cache_size);
+  int fd = cache.open(test_file);
+  ASSERT_NE(fd, -1);
+
+  char buffer[block_size];
+  std::fill_n(buffer, block_size, 'B');
+
+  ssize_t bytes_written = cache.write(fd, buffer, block_size);
+  ASSERT_EQ(bytes_written, block_size) << "Неверное количество записанных байт";
+
+  EXPECT_EQ(cache.fsync(fd), 0) << "Ошибка при выполнении fsync";
+
+  char read_back[block_size] = {0};
+  cache.lseek(fd, 0, SEEK_SET);
+  ssize_t bytes_read = cache.read(fd, read_back, block_size);
+  ASSERT_EQ(bytes_read, block_size) << "Неверное количество прочитанных байт после fsync";
+
+  for (size_t i = 0; i < block_size; ++i) {
+    ASSERT_EQ(read_back[i], 'B') << "Ошибка при проверке данных после fsync";
+  }
+
+  EXPECT_EQ(cache.close(fd), 0);
+}

@@ -11,9 +11,9 @@ struct CachePage {
   off_t offset;
   std::vector<char> data;
   bool modified;
-  bool referenced;
+  int fd;
 
-  CachePage(off_t off, size_t block_size);
+  CachePage(off_t off, size_t block_size,int file_descriptor);
 };
 
 // Класс для работы с блочным кэшом
